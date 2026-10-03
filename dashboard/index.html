@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BNI 全鑫白金分會 紅綠燈檢視表</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Orbitron:wght@400;700;900&display=swap');
+body{font-family:'Noto Sans TC',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-smoothing:grayscale}
+.font-digital{font-family:'Orbitron',sans-serif}
+/* 標題兩側光澤 */
+@keyframes sweep-slow{0%{transform:translateX(-150%)}50%,100%{transform:translateX(150%)}}
+.animate-sweep-slow{animation:sweep-slow 4s ease-in-out infinite}
+/* 跑馬燈 */
+@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+.animate-marquee{animation:marquee 30s linear infinite}
+.group:hover .animate-marquee{animation-play-state:paused}
+/* 會員卡片 */
+.perspective-1000{perspective:1000px}
+@keyframes flash-signal{0%{opacity:0;transform:scale(0.8)}50%{opacity:1;transform:scale(1.2)}100%{opacity:0;transform:scale(1.5)}}
+@keyframes shimmer-sweep-intense{0%{transform:translateX(-150%) skewX(-25deg);opacity:0.2}12%{opacity:1}35%{opacity:1}50%{transform:translateX(150%) skewX(-25deg);opacity:0.2}100%{transform:translateX(150%) skewX(-25deg);opacity:0.2}}
+.animate-flash-signal{animation:flash-signal 1.5s cubic-bezier(0.4,0,0.2,1) forwards}
+.animate-shimmer-sweep-intense{animation:shimmer-sweep-intense 2.5s cubic-bezier(0.165,0.84,0.44,1) infinite}
+/* 雷達漣漪、掃描線、閃爍 */
+@keyframes radar-ripple{0%{transform:scale(0);opacity:0}10%{opacity:1}100%{transform:scale(1);opacity:0}}
+.animate-radar-ripple{animation:radar-ripple 4.5s cubic-bezier(0.165,0.84,0.44,1) infinite}
+@keyframes scanline{0%{transform:translateY(-100%)}100%{transform:translateY(500%)}}
+.animate-scanline{animation:scanline 8s linear infinite}
+@keyframes flicker{0%{opacity:0.97}5%{opacity:0.92}10%{opacity:0.98}15%{opacity:0.94}20%{opacity:0.99}100%{opacity:1}}
+.animate-flicker{animation:flicker 0.1s infinite alternate}
+</style>
+</head>
+<body class="bg-black text-gray-100 overflow-x-hidden">
+<div id="root"></div>
+<div id="loading" style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#a1a1aa;font-size:14px;letter-spacing:.2em">載入中…</div>
+<script type="text/plain" id="app-src">var D = window.__DASHBOARD_DATA__;
+var MEMBERS = D.members || [];
+var PERIOD = String(D.period || '').split('-').join('/');
+function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function pad2(n){return n.toString().padStart(2,'0');}
+/* 原版第一次載入的計時器（React useEffect）在第一次繪製後才開始；之後由點擊、輸入觸發的則當下開始 */
+var firstRender=true;
+function afterPaint(fn){
+  if(!firstRender)return fn();
+  var done=false;function run(){if(!done){done=true;fn();}}
+  function viaTask(){var ch=new MessageChannel();ch.port1.onmessage=run;ch.port2.postMessage(null);}
+  function hid(){if(document.hidden){document.removeEventListener('visibilitychange',hid);viaTask();}}
+  requestAnimationFrame(function(){document.removeEventListener('visibilitychange',hid);setTimeout(run,0);});
+  if(document.hidden)viaTask();else document.addEventListener('visibilitychange',hid);
+}
+
+/* 燈號門檻與配色（同原版） */
+function cardColor(v){
+  return v>=70?{bg:'bg-green-500',text:'text-green-500'}:v>=50?{bg:'bg-yellow-500',text:'text-yellow-500'}:
+    v>=26?{bg:'bg-red-500',text:'text-red-500'}:{bg:'bg-gray-600',text:'text-gray-400'};
+}
+function modalColor(v){
+  return v>=70?{bg:'bg-green-500',text:'text-green-500',border:'border-green-500/30',hex:'#22c55e',shadowColor:'rgba(34,197,94,0.4)'}:
+    v>=50?{bg:'bg-yellow-500',text:'text-yellow-500',border:'border-yellow-500/30',hex:'#eab308',shadowColor:'rgba(234,179,8,0.4)'}:
+    v>=26?{bg:'bg-red-500',text:'text-red-500',border:'border-red-500/30',hex:'#ef4444',shadowColor:'rgba(239,68,68,0.4)'}:
+    {bg:'bg-zinc-600',text:'text-zinc-500',border:'border-zinc-500/30',hex:'#71717a',shadowColor:'rgba(113,113,122,0.4)'};
+}
+function adviceOf(v){
+  if(v===100)return {content:'您的表現無可挑剔，是分會中「付出者收穫」精神的最佳實踐者。',action:'請持續保持當前的節奏，帶領更多夥伴進入綠燈圈。'};
+  if(v>=80)return {content:'您是分會中非常穩定的高價值會員，數據表現強勁。',action:'建議強化成交金額的轉化深度。'};
+  if(v>=70)return {content:'恭喜達成綠燈目標！這代表您已經建立了良好的商務習慣。',action:'請注意六個月滾動尚缺，確保優勢持續。'};
+  if(v>=50)return {content:'目前處於黃燈區間，是一個關鍵的調整期。',action:'請專注於「1對1交流」與「給出引薦」。'};
+  if(v>=26)return {content:'當前的數據處於低谷，需要重新找回商務連結。',action:'請立即安排與導師進行深度1對1。'};
+  return {content:'數據表現異常。這代表參與度已降至警戒線以下。',action:'請務必聯繫領導團隊讓我們了解您的困難。'};
+}
+function badgeColor(b){
+  return b==='121TOP'?'text-blue-400':b==='來賓TOP'?'text-purple-400':b==='引薦單數 TOP'?'text-orange-400':b==='金額TOP🌟'?'text-yellow-400':'text-zinc-500';
+}
+
+/* 音效（開啟／關閉明細） */
+function playSound(kind){
+  try{
+    var ctx=new (window.AudioContext||window.webkitAudioContext)(),gain=ctx.createGain();
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0,ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.15,ctx.currentTime+0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(kind==='open'?0.15:0.2));
+    var osc=ctx.createOscillator();osc.type='sine';
+    if(kind==='open'){osc.frequency.setValueAtTime(800,ctx.currentTime);osc.frequency.exponentialRampToValueAtTime(1500,ctx.currentTime+0.08);}
+    else{osc.frequency.setValueAtTime(1000,ctx.currentTime);osc.frequency.exponentialRampToValueAtTime(400,ctx.currentTime+0.12);}
+    osc.connect(gain);
+    var click=ctx.createOscillator();click.type='square';click.frequency.setValueAtTime(kind==='open'?2400:1800,ctx.currentTime);
+    var cg=ctx.createGain();cg.gain.setValueAtTime(0.05,ctx.currentTime);cg.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.02);
+    click.connect(cg);cg.connect(gain);
+    osc.start();click.start();osc.stop(ctx.currentTime+0.2);click.stop(ctx.currentTime+0.02);
+  }catch(e){console.warn('Audio Context interaction blocked or unsupported.');}
+}
+
+/* 統計與 TOP 徽章（同原版：引薦單數 TOP 只看內部引薦） */
+var STATS={green:0,yellow:0,red:0,black:0},TOP={oto:0,guest:0,ref:0,money:0};
+MEMBERS.forEach(function(m){
+  var s=m.scores,v=s.trafficLightScore;
+  if(v>=70)STATS.green++;else if(v>=50)STATS.yellow++;else if(v>=26)STATS.red++;else STATS.black++;
+  if(s.oneToOne>TOP.oto)TOP.oto=s.oneToOne;
+  if(s.guestsBrought>TOP.guest)TOP.guest=s.guestsBrought;
+  if(s.internalReferralsGiven>TOP.ref)TOP.ref=s.internalReferralsGiven;
+  if(s.businessValue>TOP.money)TOP.money=s.businessValue;
+});
+function badgesOf(m){
+  var s=m.scores,b=[];
+  if(TOP.oto>0&&s.oneToOne===TOP.oto)b.push('121TOP');
+  if(TOP.guest>0&&s.guestsBrought===TOP.guest)b.push('來賓TOP');
+  if(TOP.ref>0&&s.internalReferralsGiven===TOP.ref)b.push('引薦單數 TOP');
+  if(TOP.money>0&&s.businessValue===TOP.money)b.push('金額TOP🌟');
+  return b;
+}
+
+/* ── 標題 ── */
+function headerHtml(){
+  var sweep='<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-sweep-slow"></div>';
+  return '<header class="text-center mb-6 relative pt-4 overflow-hidden">'+
+    '<div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-24 bg-red-600/5 blur-[80px] pointer-events-none"></div>'+
+    '<div class="flex flex-col items-center relative z-10">'+
+      '<div class="flex items-center justify-center gap-4 md:gap-6 w-full px-4">'+
+        '<div class="hidden lg:flex items-center group">'+
+          '<div class="w-10 h-8 relative overflow-hidden transform -skew-x-[20deg] border-r-4 border-red-600 shadow-[10px_0_20px_rgba(220,38,38,0.2)] bg-white/5">'+sweep+'</div>'+
+          '<div class="w-2 h-8 bg-red-600/20 transform -skew-x-[20deg] ml-1"></div>'+
+        '</div>'+
+        '<div class="flex flex-col items-center">'+
+          '<h1 class="text-[24px] sm:text-[34px] md:text-[40px] lg:text-[52px] font-black text-white tracking-tighter uppercase italic flex flex-row items-center gap-2 md:gap-3 whitespace-nowrap">'+
+            '<span class="drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">BNI 全鑫白金分會</span>'+
+            '<span class="text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-500 drop-shadow-lg">紅綠燈檢視表</span>'+
+          '</h1>'+
+          '<div class="flex items-center gap-3 mt-3">'+
+            '<div class="h-px w-6 md:w-10 bg-gradient-to-r from-transparent to-red-600 opacity-40"></div>'+
+            '<p class="text-[7px] md:text-[9px] font-black text-zinc-500 tracking-[0.4em] uppercase whitespace-nowrap">Fast Lane Performance Telemetry</p>'+
+            '<div class="h-px w-6 md:w-10 bg-gradient-to-l from-transparent to-red-600 opacity-40"></div>'+
+          '</div>'+
+        '</div>'+
+        '<div class="hidden lg:flex items-center group">'+
+          '<div class="w-2 h-8 bg-red-600/20 transform skew-x-[20deg] mr-1"></div>'+
+          '<div class="w-10 h-8 relative overflow-hidden transform skew-x-[20deg] border-l-4 border-red-600 shadow-[-10px_0_20px_rgba(220,38,38,0.2)] bg-white/5">'+sweep+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="mt-4 flex items-center gap-3 px-4 py-1 bg-zinc-900/50 rounded-full border border-white/5 backdrop-blur-xl shadow-2xl group hover:border-red-600/30 transition-all duration-500">'+
+        '<div class="flex gap-1">'+
+          '<div class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]"></div>'+
+          '<div class="w-1.5 h-1.5 rounded-full bg-zinc-700"></div>'+
+          '<div class="w-1.5 h-1.5 rounded-full bg-zinc-700"></div>'+
+        '</div>'+
+        '<div class="w-px h-3 bg-zinc-800"></div>'+
+        '<span class="text-[7px] font-black text-zinc-500 uppercase tracking-[0.2em] group-hover:text-zinc-300 transition-colors">Race Control System Active</span>'+
+        '<span class="text-[7px] font-mono text-red-600 font-bold ml-1">LIVE</span>'+
+      '</div>'+
+    '</div>'+
+  '</header>';
+}
+
+/* ── 燈號分佈統計（12 格 LED，載入 0.2 秒後逐格亮起） ── */
+var BARS=[
+  {label:'綠燈',key:'green',color:'bg-green-500',glow:'shadow-[0_0_40px_rgba(34,197,94,0.7)]',textColor:'text-green-400'},
+  {label:'黃燈',key:'yellow',color:'bg-yellow-500',glow:'shadow-[0_0_35px_rgba(234,179,8,0.6)]',textColor:'text-yellow-400'},
+  {label:'紅燈',key:'red',color:'bg-red-500',glow:'shadow-[0_0_35px_rgba(239,68,68,0.6)]',textColor:'text-red-400'},
+  {label:'灰燈',key:'black',color:'bg-zinc-600',glow:'shadow-[0_0_30px_rgba(113,113,122,0.4)]',textColor:'text-zinc-500'}
+];
+var SEGMENTS=12,TICKS=[100,75,50,25,0];
+function flagHtml(){
+  var cells='';
+  for(var g=0;g<12;g++){
+    var on=(Math.floor(g/4)+g%4)%2===0;
+    cells+='<div class="w-[7px] h-[7px] md:w-3 md:h-3 '+(on?'bg-zinc-100 shadow-[0_0_5px_rgba(255,255,255,0.2)]':'bg-transparent border border-zinc-800')+'"></div>';
+  }
+  return '<div class="grid grid-cols-4 grid-rows-3 gap-[1.5px] md:gap-[2px] opacity-40 group-hover:opacity-70 transition-opacity duration-700 flex-shrink-0">'+cells+'</div>';
+}
+function segClass(bar,b,lit,on){
+  return 'h-2 md:h-4 w-full rounded-sm transition-all duration-700 '+(on&&b<lit?bar.color+' '+bar.glow+' opacity-100 scale-100':'bg-zinc-800/40 opacity-10 scale-95');
+}
+function statsHtml(){
+  var total=STATS.green+STATS.yellow+STATS.red+STATS.black;
+  if(total===0)return '';
+  var axis=TICKS.map(function(t){
+    return '<div class="flex items-center justify-end gap-2 md:gap-6 group/tick"><span class="text-[9px] md:text-[14px] font-digital font-bold text-zinc-600 group-hover/tick:text-zinc-200 transition-colors">'+t+'<!---->%</span><div class="w-2 md:w-6 h-[1.5px] bg-zinc-800"></div></div>';
+  }).join('');
+  var grid=TICKS.map(function(){return '<div class="h-[1px] w-full bg-zinc-800/80"></div>';}).join('');
+  var bars=BARS.map(function(bar){
+    var count=STATS[bar.key],lit=Math.round(count/total*100/100*SEGMENTS),segs='';
+    for(var b=0;b<SEGMENTS;b++)segs+='<div class="'+segClass(bar,b,lit,false)+'" data-bar="'+bar.key+'" data-b="'+b+'" style="transition-delay:'+(b*40)+'ms"></div>';
+    return '<div class="flex flex-col items-center justify-end h-full w-full max-w-[60px] md:max-w-[160px] group/bar relative">'+
+      '<div class="absolute bottom-0 w-24 md:w-64 h-24 md:h-64 rounded-full blur-[40px] md:blur-[80px] transition-opacity duration-1000 opacity-0 '+bar.color+'" data-glow="1"></div>'+
+      '<div class="w-8 md:w-20 flex flex-col-reverse gap-1 md:gap-2.5 mb-2 md:mb-3 relative z-10">'+segs+'</div>'+
+      '<div class="flex flex-col items-center gap-1">'+
+        '<span class="text-2xl md:text-7xl font-black italic tracking-tighter leading-none text-white drop-shadow-[0_0_20px_rgba(0,0,0,0.9)] transition-transform group-hover/bar:scale-110 duration-300">'+count+'</span>'+
+        '<span class="text-[7px] md:text-xl font-black '+bar.textColor+' uppercase tracking-[0.1em] md:tracking-[0.4em]">'+bar.label+'</span>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  return '<div class="bg-[#08080a] py-6 md:py-10 px-4 md:px-16 rounded-[2rem] md:rounded-[4rem] border border-white/5 shadow-[0_60px_120px_-20px_rgba(0,0,0,1)] overflow-hidden relative group">'+
+    '<div class="absolute top-0 left-1/4 w-1/2 h-full bg-blue-500/5 blur-[150px] pointer-events-none"></div>'+
+    '<div class="absolute inset-0 opacity-[0.15] pointer-events-none" style="background-image:linear-gradient(to right,#52525b 1px,transparent 1px),linear-gradient(to bottom,#52525b 1px,transparent 1px);background-size:32px 32px"></div>'+
+    '<div class="flex flex-col items-center mb-10 md:mb-14 relative z-10 w-full"><div class="flex items-center justify-center gap-4 md:gap-16 w-full px-2">'+
+      flagHtml()+
+      '<div class="text-center px-2"><h3 class="text-[26px] sm:text-3xl md:text-5xl font-black text-white tracking-tighter uppercase italic drop-shadow-[0_0_20px_rgba(255,255,255,0.2)] whitespace-nowrap leading-none">燈號分佈統計</h3></div>'+
+      flagHtml()+
+    '</div></div>'+
+    '<div class="flex h-52 md:h-[320px] relative z-10">'+
+      '<div class="flex flex-col justify-between h-full pr-4 md:pr-10 border-r-2 border-zinc-800/80">'+axis+'</div>'+
+      '<div class="flex-grow flex items-end justify-around px-2 md:px-20 relative">'+
+        '<div class="absolute inset-0 px-2 md:px-20 flex flex-col justify-between pointer-events-none opacity-20">'+grid+'</div>'+bars+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+function lightUpStats(){
+  var total=STATS.green+STATS.yellow+STATS.red+STATS.black;
+  BARS.forEach(function(bar){
+    var lit=Math.round(STATS[bar.key]/total*100/100*SEGMENTS);
+    document.querySelectorAll('[data-bar="'+bar.key+'"]').forEach(function(el){el.className=segClass(bar,Number(el.getAttribute('data-b')),lit,true);});
+  });
+  document.querySelectorAll('[data-glow]').forEach(function(el){el.classList.remove('opacity-0');el.classList.add('opacity-40');});
+}
+
+/* ── 搜尋列與跑馬燈 ── */
+function marqueeGroup(extra){
+  var tag='text-[9px] bg-white/5 text-zinc-500 px-2 py-0.5 rounded font-black uppercase tracking-tighter border border-white/5';
+  var val='text-xs font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]';
+  return '<div class="animate-marquee flex items-center gap-16'+extra+'">'+
+    '<div class="flex items-center gap-4"><span class="'+tag+'">Sampling Period</span><span class="'+val+'">取樣期間：<!---->'+esc(PERIOD)+'</span></div>'+
+    '<div class="flex items-center gap-4"><span class="'+tag+'">Live Status</span><span class="'+val+'">分會總人數：<!---->'+MEMBERS.length+'<!----> 位會員</span></div>'+
+    '<div class="flex items-center gap-3"><div class="w-1 h-1 rounded-full bg-zinc-400 animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.5)]"></div>'+
+      '<span class="text-[10px] font-bold text-zinc-500 tracking-widest italic uppercase">全鑫白金系統連線中 CHAPTER SYSTEM ONLINE</span></div>'+
+  '</div>';
+}
+function toolbarHtml(){
+  return '<div class="flex flex-col lg:flex-row gap-4 justify-between items-center sticky top-4 z-10 bg-zinc-900/80 backdrop-blur-xl py-3 px-6 rounded-2xl border border-white/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)]">'+
+    '<div class="relative w-full lg:w-1/3 flex items-center">'+
+      '<div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">'+
+        '<svg class="h-4 w-4 text-zinc-600 group-focus-within:text-zinc-400 transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>'+
+      '</div>'+
+      '<input type="text" placeholder="搜尋會員姓名或編號..." class="w-full pl-11 pr-4 py-2.5 bg-black/60 border border-white/5 rounded-xl focus:outline-none focus:ring-1 focus:ring-zinc-700 text-sm text-zinc-200 placeholder:text-zinc-700 transition-all font-medium">'+
+    '</div>'+
+    '<div class="flex-grow w-full lg:w-2/3 h-9 bg-[#050505] rounded-lg border border-zinc-800/50 relative overflow-hidden flex items-center shadow-inner group">'+
+      '<div class="absolute inset-0 z-20 pointer-events-none opacity-[0.08]" style="background-image:radial-gradient(circle,#fff 1px,transparent 1px);background-size:3px 3px"></div>'+
+      '<div class="absolute inset-0 bg-white/5 pointer-events-none"></div>'+
+      '<div class="whitespace-nowrap flex items-center h-full relative z-10">'+marqueeGroup('')+marqueeGroup(' ml-16')+'</div>'+
+      '<div class="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#050505] via-[#050505]/80 to-transparent z-20"></div>'+
+      '<div class="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#050505] via-[#050505]/80 to-transparent z-20"></div>'+
+    '</div>'+
+  '</div>';
+}
+
+/* ── 會員卡片（滑鼠 3D 傾斜、升降閃光、滿分流光） ── */
+function createCard(m){
+  var s=m.scores,v=s.trafficLightScore,prev=s.previousTrafficLightScore,perfect=v===100,col=cardColor(v);
+  var delta=prev===undefined||prev===null?0:v-prev;
+  var bd=badgesOf(m);
+  var wrap=document.createElement('div');
+  wrap.className='perspective-1000';
+  wrap.innerHTML='<button type="button" class="group w-full text-left py-2 px-4 rounded-xl shadow transition-all duration-300 flex items-center justify-between focus:outline-none relative overflow-hidden active:scale-[0.98] '+
+      (perfect?'bg-[#0d1117] border-none shadow-[0_0_45px_rgba(255,255,255,0.18)]':'bg-[#0f1115] border border-white/5 hover:border-white/10')+'" style="transform:rotateX(0deg) rotateY(0deg);transition:all 0.5s ease">'+
+    (perfect?'<div class="absolute inset-0 z-0 pointer-events-none overflow-hidden">'+
+      '<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.25] to-transparent -translate-x-full animate-shimmer-sweep-intense"></div>'+
+      '<div class="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer-sweep-intense"></div>'+
+      '<div class="absolute bottom-0 left-0 right-0 h-[1px] bg-white/10"></div></div>':'')+
+    '<div class="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-10 transition-opacity duration-300 bg-gradient-to-tr from-transparent via-white to-transparent" data-gloss="1" style="transform:translate(0px,0px)"></div>'+
+    '<div class="flex items-center gap-2 min-w-0 z-10">'+
+      '<span class="w-5 text-center font-digital text-[10px] font-bold transition-colors flex-shrink-0 '+(perfect?'text-white':'text-white/30 group-hover:text-white/60')+'">'+pad2(m.id)+'</span>'+
+      '<div class="flex flex-col justify-center min-w-0">'+
+        '<div class="flex items-center gap-2"><span class="font-bold text-base tracking-tight whitespace-nowrap truncate transition-colors '+
+          (perfect?'text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.6)]':'text-zinc-300 group-hover:text-white')+'">'+esc(m.name)+'</span></div>'+
+        (bd.length?'<div class="flex gap-1.5 leading-none mt-0.5">'+bd.map(function(b){return '<span class="text-[7px] font-black uppercase tracking-widest '+badgeColor(b)+'">'+b+'</span>';}).join('')+'</div>':'')+
+      '</div>'+
+    '</div>'+
+    '<div class="flex items-center gap-2.5 z-10 flex-shrink-0"><div class="flex items-center gap-2.5">'+
+      '<div class="relative"><div class="w-1.5 h-1.5 rounded-full '+col.bg+' shadow-[0_0_12px_currentColor]"></div></div>'+
+      '<div class="flex flex-col items-end leading-none relative" data-sig="1">'+
+        '<div class="text-base font-black italic tracking-tighter '+col.text+' drop-shadow-[0_0_8px_rgba(0,0,0,0.8)] transition-transform duration-300 scale-100" data-score="1">'+v+'</div>'+
+        (delta!==0?'<span class="text-[7px] font-bold '+(delta>0?'text-green-500':'text-red-500')+' mt-0.5">'+(delta>0?'▲':'▼')+'<!---->'+Math.abs(delta)+'</span>':'')+
+      '</div>'+
+    '</div></div>'+
+  '</button>';
+  var btn=wrap.firstChild,gloss=btn.querySelector('[data-gloss]');
+  btn.addEventListener('click',function(){openDetail(m);});
+  btn.addEventListener('mousemove',function(e){
+    var r=btn.getBoundingClientRect(),x=(e.clientY-r.top-r.height/2)/30,y=(r.width/2-(e.clientX-r.left))/30;
+    btn.style.transform='rotateX('+x+'deg) rotateY('+y+'deg)';btn.style.transition=x===0?'all 0.5s ease':'none';
+    gloss.style.transform='translate('+(y*2.5)+'px, '+(x*2.5)+'px)';
+  });
+  btn.addEventListener('mouseleave',function(){
+    btn.style.transform='rotateX(0deg) rotateY(0deg)';btn.style.transition='all 0.5s ease';gloss.style.transform='translate(0px, 0px)';
+  });
+  if(delta!==0)afterPaint(function(){
+    /* 0.3 秒後：分數放大並閃一下升（綠）或降（紅）的訊號 */
+    setTimeout(function(){
+      var sig=wrap.querySelector('[data-sig]'),flash=document.createElement('div');
+      flash.className='absolute -inset-1 blur-md rounded-full opacity-0 pointer-events-none '+(delta>0?'bg-green-500/40':'bg-red-500/40')+' animate-flash-signal';
+      sig.insertBefore(flash,sig.firstChild);
+      var sc=wrap.querySelector('[data-score]');sc.classList.remove('scale-100');sc.classList.add('scale-110');
+    },300);
+  });
+  return wrap;
+}
+var cards={},shown=[];
+function renderGrid(){
+  var q=qEl.value,list=MEMBERS;
+  if(q.trim()){var k=q.toLowerCase();list=MEMBERS.filter(function(m){return m.name.toLowerCase().indexOf(k)>=0||m.id.toString().indexOf(k)>=0;});}
+  var main=document.getElementById('main');
+  if(!list.length){
+    Object.keys(cards).forEach(function(id){delete cards[id];});
+    main.innerHTML='<div class="text-center py-16 bg-white/5 rounded-2xl border border-white/10"><p class="text-gray-500 text-lg font-medium">找不到符合條件的會員，請嘗試其他關鍵字。</p></div>';
+    shown=[];return;
+  }
+  var grid=main.querySelector('[data-grid]');
+  if(!grid){main.innerHTML='<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2" data-grid="1"></div>';grid=main.firstChild;}
+  var keep={};list.forEach(function(m){keep[m.id]=true;});
+  Object.keys(cards).forEach(function(id){if(!keep[id]){cards[id].remove();delete cards[id];}});
+  /* 同 React：留下的卡片不搬動（搬動會重播閃光、滿分流光），只插入新出現或位置不對的卡片 */
+  list.forEach(function(m,i){if(!cards[m.id])cards[m.id]=createCard(m);if(grid.children[i]!==cards[m.id])grid.insertBefore(cards[m.id],grid.children[i]||null);});
+  shown=list;
+}
+
+/* ── 會員明細（分數跳動、雷達漣漪、數據診斷螢幕） ── */
+var RADAR_SIZE=360,RC=RADAR_SIZE/2,RR=RADAR_SIZE*0.32;
+function radarPoint(i,val,max,k){var a=Math.PI*2*i/6-Math.PI/2,d=RR*(val/max)*k;return {x:RC+d*Math.cos(a),y:RC+d*Math.sin(a)};}
+function radarHtml(m,color){
+  var s=m.scores,axes=[
+    {label:'出席',sub:'ATT',val:s.attendanceScore,max:20},{label:'引薦',sub:'REF',val:s.referralScore,max:20},
+    {label:'1對1',sub:'121',val:s.oneToOneScore,max:15},{label:'培訓',sub:'CEU',val:s.trainingScore,max:15},
+    {label:'成交',sub:'TYB',val:s.businessValueScore,max:15},{label:'來賓',sub:'GST',val:s.guestScore,max:15}];
+  var clip=[],i;
+  for(i=0;i<6;i++){var a=Math.PI*2*i/6-Math.PI/2;clip.push((50+32*Math.cos(a)).toFixed(2)+'% '+(50+32*Math.sin(a)).toFixed(2)+'%');}
+  var rings=[0.2,0.4,0.6,0.8,1].map(function(f){
+    var pts=[];for(var j=0;j<6;j++){var a=Math.PI*2*j/6-Math.PI/2,d=RR*f;pts.push((RC+d*Math.cos(a))+','+(RC+d*Math.sin(a)));}
+    return '<polygon points="'+pts.join(' ')+'" fill="none" stroke="'+(f===1?'rgba(255,255,255,0.6)':'rgba(255,255,255,0.25)')+'" stroke-width="'+(f===1?'2':'1.2')+'" opacity="1"/>';
+  }).join('');
+  var spokes='';for(i=0;i<6;i++){var a2=Math.PI*2*i/6-Math.PI/2;spokes+='<line x1="'+RC+'" y1="'+RC+'" x2="'+(RC+RR*Math.cos(a2))+'" y2="'+(RC+RR*Math.sin(a2))+'" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>';}
+  var labels=axes.map(function(x,j){
+    var a=Math.PI*2*j/6-Math.PI/2,d=RR+42,lx=RC+d*Math.cos(a),ly=RC+d*Math.sin(a);
+    return '<g class="opacity-95"><text x="'+lx+'" y="'+(ly-8)+'" text-anchor="middle" dominant-baseline="middle" fill="white" class="text-[14px] font-black tracking-tighter italic">'+x.label+'</text>'+
+      '<text x="'+lx+'" y="'+(ly+8)+'" text-anchor="middle" dominant-baseline="middle" fill="'+color+'" class="text-[9px] font-bold tracking-[0.1em] opacity-90">'+x.sub+'</text></g>';
+  }).join('');
+  return '<div class="relative w-full aspect-square max-w-[360px] flex items-center justify-center overflow-visible" data-radar="1">'+
+    '<div class="absolute inset-0 z-0 pointer-events-none" style="clip-path:polygon('+clip.join(', ')+')"><div class="absolute inset-0 flex items-center justify-center">'+
+      '<div class="w-full h-full rounded-full animate-radar-ripple border-2" data-ripple="1" style="border-color:'+color+'44;background-color:'+color+'11;animation-delay:0s"></div>'+
+      '<div class="absolute w-full h-full rounded-full animate-radar-ripple border-2" data-ripple="1" style="border-color:'+color+'33;background-color:'+color+'05;animation-delay:1.5s"></div>'+
+      '<div class="absolute w-full h-full rounded-full animate-radar-ripple border-2" data-ripple="1" style="border-color:'+color+'22;animation-delay:3s"></div>'+
+    '</div></div>'+
+    '<div class="absolute w-4 h-4 rounded-full blur-[4px] z-[1]" style="background-color:'+color+';box-shadow:0 0 15px '+color+'"></div>'+
+    '<svg viewBox="0 0 '+RADAR_SIZE+' '+RADAR_SIZE+'" class="w-full h-full drop-shadow-[0_0_20px_rgba(0,0,0,0.8)] relative z-10 overflow-visible">'+
+      '<defs><filter id="glow"><feGaussianBlur stdDeviation="2" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>'+
+      rings+spokes+
+      '<polygon data-poly="1" points="" fill="'+color+'" fill-opacity="0.3" stroke="'+color+'" stroke-width="3.5" stroke-linejoin="round" filter="url(#glow)" class="transition-all duration-1000 ease-out"/>'+
+      axes.map(function(x,j){return '<g class="transition-all duration-1000" style="opacity:0" data-dot="'+j+'"><circle cx="'+RC+'" cy="'+RC+'" r="3.5" fill="#fff"/><circle cx="'+RC+'" cy="'+RC+'" r="6" stroke="'+color+'" fill="none" stroke-width="2"/></g>';}).join('')+
+      labels+
+    '</svg>'+
+  '</div>';
+  /* 多邊形與頂點的位置由 setRadar() 依展開程度 k（0→1）設定 */
+}
+function setRadar(root,m,k){
+  var s=m.scores,vals=[[s.attendanceScore,20],[s.referralScore,20],[s.oneToOneScore,15],[s.trainingScore,15],[s.businessValueScore,15],[s.guestScore,15]];
+  var pts=vals.map(function(x,i){var p=radarPoint(i,x[0],x[1],k);return p.x+','+p.y;});
+  root.querySelector('[data-poly]').setAttribute('points',pts.join(' '));
+  vals.forEach(function(x,i){
+    var p=radarPoint(i,x[0],x[1],k),g=root.querySelector('[data-dot="'+i+'"]');
+    g.style.opacity=k;g.querySelectorAll('circle').forEach(function(c){c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);});
+  });
+}
+function statRow(label,value,sub,unit){
+  return '<div class="flex flex-col py-3 px-1 border-b border-white/5 hover:bg-white/[0.02] transition-colors group"><div class="flex justify-between items-center">'+
+    '<div class="flex flex-col"><dt class="text-zinc-400 text-[13px] font-bold tracking-tight">'+label+'</dt>'+
+      (sub?'<span class="text-[10px] text-zinc-600 font-bold tracking-tight leading-none mt-1 opacity-80">'+sub+'</span>':'')+'</div>'+
+    '<dd class="text-[15px] flex items-baseline gap-0.5"><span class="font-digital text-white">'+esc(value)+'</span>'+
+      (unit?'<span class="text-[10px] text-zinc-500 font-bold ml-0.5">'+unit+'</span>':'')+'</dd>'+
+  '</div></div>';
+}
+function panel(cls,inner){return '<div class="bg-[#0a0a0a] border border-white/5 '+cls+'">'+inner+'</div>';}
+function panelBox(bar,title,rows){
+  return panel('rounded-2xl','<div class="p-6 h-full flex flex-col"><h3 class="font-black text-[14px] text-white uppercase tracking-wider mb-5 flex items-center gap-2"><div class="w-0.5 h-4 '+bar+'"></div> '+title+'</h3><dl class="space-y-1">'+rows+'</dl></div>');
+}
+function num(n){return Number(n||0).toLocaleString();}
+/* 原版明細（React 元件 Nm）的重繪規則：
+   - 外框、標題列、X 按鈕、數據診斷螢幕在重繪時保留原元素，只更新內容與 class（X 按鈕換色有 0.3 秒過渡，掃描線不中斷）
+   - 分數面板與三個統計面板（原版的 O 元件每次重繪都是新型別）每次重繪都整塊重新建立：
+     雷達重新掛載（收合、漣漪重來，0.5 秒內沒再重繪才展開）、▲ 重新跳、選取的文字消失
+   - 重繪時機：分數跳動數字改變（在 rAF 裡更新，React 在下一個工作才重繪，所以晚一個畫格）、
+     第一次觸發關閉、換人（明細開著時按另一張卡片）、上層重繪（搜尋框輸入）——後三者當下重繪 */
+var detail=null;
+function detailInfo(m){
+  var s=m.scores,v=s.trafficLightScore;
+  return {s:s,v:v,c:modalColor(v),adv:adviceOf(v),delta:v-(s.previousTrafficLightScore==null?v:s.previousTrafficLightScore)};
+}
+function scorePanelNode(m,shown){
+  var d=detailInfo(m);
+  var up=d.delta>0&&shown===d.v?'<div class="flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-2 duration-700">'+
+    '<span class="text-4xl md:text-5xl font-black leading-none text-green-500 animate-bounce">▲</span>'+
+    '<span class="text-lg md:text-xl font-digital font-bold text-green-500">+<!---->'+d.delta+'</span></div>':'';
+  var box=document.createElement('div');
+  box.innerHTML=panel('rounded-3xl border-zinc-800','<div class="p-6 md:p-8 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4 w-full">'+
+    '<div class="flex flex-col items-center md:items-start pl-0 md:pl-4"><div class="flex items-baseline gap-4 relative">'+
+      '<div class="text-[8rem] md:text-[10rem] font-black italic tracking-tighter font-digital leading-none '+d.c.text+' drop-shadow-2xl flex items-baseline">'+shown+
+        '<span class="text-2xl md:text-3xl font-black ml-2 opacity-50 not-italic">分</span></div>'+up+
+    '</div></div>'+
+    '<div class="flex justify-center md:justify-end">'+radarHtml(m,d.c.hex)+'</div>'+
+  '</div>');
+  return box.firstChild;
+}
+function statPanelsHtml(m){
+  var s=m.scores;
+  return panelBox('bg-yellow-500','分會統計',
+      statRow('出席 / 代理',s.attendance+' / '+s.proxy,'','次')+statRow('缺席次數',s.absence,'','次')+statRow('遲到次數',s.late,'','次')+
+      statRow('給予引薦 (內/外)',s.internalReferralsGiven+' / '+s.externalReferralsGiven,'','次')+statRow('一對一交流',s.oneToOne,'','次')+
+      statRow('成交價值',num(s.businessValue),'','元')+statRow('帶入來賓',s.guestsBrought,'','位'))+
+    panelBox('bg-blue-500','預測分數',
+      statRow('出席得分',s.attendanceScore,'(滿分為20)','分')+statRow('引薦得分',s.referralScore,'(滿分為20)','分')+
+      statRow('一對一得分',s.oneToOneScore,'(滿分為15)','分')+statRow('金額得分',s.businessValueScore,'(滿分為15)','分')+
+      statRow('培訓得分',s.trainingScore,'(滿分為15)','分')+statRow('來賓得分',s.guestScore,'(滿分為15)','分'))+
+    panelBox('bg-red-500','尚缺指標',
+      statRow('引薦尚缺',s.rolling6Months_referralDeficitWeekly,'','次')+statRow('一對一尚缺',s.rolling6Months_oneToOneDeficitBiweekly,'','次')+
+      statRow('成交達成尚缺',num(s.rolling6Months_businessValueDeficit),'','元')+statRow('培訓尚缺',s.rolling6Months_trainingDeficit,'','分')+
+      statRow('來賓尚缺',s.rolling6Months_guestDeficit,'','位'));
+}
+function openDetail(m){
+  playSound('open');
+  if(detail){detail.select(m);return;}   /* 明細開著時（鍵盤 Enter／空白鍵）：同一人不重繪，換人則原地更新 */
+  detail=mountDetail(m);
+}
+function mountDetail(m0){
+  var st={m:m0,closing:false,shown:0,dead:false,loop:0,pend:0,posted:false,radarTimer:null,panel:null};
+  var el=document.createElement('div');
+  el.innerHTML='<div class="relative bg-[#050505] w-full sm:max-w-5xl h-full sm:h-auto sm:max-h-[92vh] overflow-y-auto sm:rounded-[2rem] border border-white/10 shadow-2xl flex flex-col transform transition-all duration-500" data-sheet="1">'+
+    '<div class="sticky top-0 bg-black/80 backdrop-blur-md px-6 py-4 border-b border-white/5 z-20 flex justify-between items-center">'+
+      '<div class="flex items-center gap-4"><div data-bar="1"></div>'+
+        '<div><div class="flex items-center gap-3"><h2 class="text-[32px] md:text-5xl font-black text-white italic uppercase tracking-tighter leading-tight"></h2></div></div></div>'+
+      '<button type="button" data-close="1"><span class="font-digital text-2xl md:text-4xl font-black transition-transform group-hover:rotate-90 group-active:scale-90">X</span></button>'+
+    '</div>'+
+    '<div class="p-4 sm:p-6 space-y-6 relative z-10" data-content="1">'+
+      '<div class="grid grid-cols-1 md:grid-cols-3 gap-4" data-grid="1"></div>'+
+      '<div class="relative pt-6"><div class="absolute top-0 left-10 right-10 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>'+
+        '<div class="bg-[#050505] rounded-xl border-t-[10px] border-x-[8px] border-b-[12px] border-zinc-900 shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_0_20px_rgba(0,0,0,1)] relative overflow-hidden group">'+
+          '<div class="absolute top-[-7px] left-4 w-1.5 h-1.5 rounded-full bg-zinc-800 border border-zinc-700"></div>'+
+          '<div class="absolute top-[-7px] right-4 w-1.5 h-1.5 rounded-full bg-zinc-800 border border-zinc-700"></div>'+
+          '<div class="absolute inset-0 z-10 pointer-events-none opacity-20 overflow-hidden">'+
+            '<div class="absolute inset-0 animate-scanline bg-gradient-to-b from-transparent via-white/10 to-transparent h-20 w-full"></div>'+
+            '<div class="absolute inset-0" style="background-image:radial-gradient(circle,#fff 0.5px,transparent 0.5px);background-size:3px 3px"></div>'+
+          '</div>'+
+          '<div class="absolute top-3 left-3 z-30 flex items-center gap-2"><div data-pulse="1"></div><div data-badge="1">數據診斷 <!---->0<!---->%</div></div>'+
+          '<div class="p-10 md:p-16 bg-zinc-950/80 min-h-[200px] flex flex-col gap-8 items-center justify-center text-center relative pt-14">'+
+            '<div class="space-y-8 relative z-20 w-full max-w-3xl"><div><p data-flicker="1"></p></div></div>'+
+            '<div class="w-full max-w-lg bg-black/40 border border-white/5 rounded-lg p-6 relative z-20 group-hover:border-white/10 transition-colors"><p class="text-zinc-400 text-[14px] leading-relaxed font-medium" data-action="1"></p></div>'+
+          '</div>'+
+          '<div class="absolute bottom-[-9px] left-1/2 -translate-x-1/2 flex gap-1.5"><div class="w-1 h-1 rounded-full bg-green-500 opacity-40 shadow-[0_0_5px_#22c55e]"></div>'+
+            '<div class="w-1 h-1 rounded-full bg-zinc-800"></div><div class="w-1 h-1 rounded-full bg-zinc-800"></div></div>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+  var q=function(sel){return el.querySelector(sel);};
+  var sheet=q('[data-sheet]'),bar=q('[data-bar]'),h2=q('h2'),xBtn=q('[data-close]'),content=q('[data-content]'),grid=q('[data-grid]');
+  var pulse=q('[data-pulse]'),badge=q('[data-badge]'),badgeNum=badge.childNodes[2],flick=q('[data-flicker]'),action=q('[data-action]');
+
+  function render(){
+    var d=detailInfo(st.m),c=d.c;
+    el.className='fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center z-[100] p-0 sm:p-4 transition-opacity duration-300 '+(st.closing?'opacity-0':'opacity-100');
+    sheet.className='relative bg-[#050505] w-full sm:max-w-5xl h-full sm:h-auto sm:max-h-[92vh] overflow-y-auto sm:rounded-[2rem] border border-white/10 shadow-2xl flex flex-col transform transition-all duration-500 '+(st.closing?'scale-95 opacity-0':'scale-100 opacity-100');
+    bar.className='w-2 h-12 md:h-16 '+c.bg+' rounded-full shadow-[0_0_20px_currentColor]';
+    if(st.h2m!==st.m){st.h2m=st.m;h2.innerHTML=esc(st.m.name)+'<span class="text-zinc-700 not-italic ml-4 opacity-50">#<!---->'+pad2(st.m.id)+'</span>';}
+    xBtn.className='w-10 h-10 md:w-14 md:h-14 flex items-center justify-center rounded-xl border transition-all duration-300 group '+c.text+' '+c.border+' bg-white/[0.03] hover:bg-opacity-100 hover:'+c.bg+' hover:text-white shadow-[0_0_15px_rgba(0,0,0,0.5)]';
+    xBtn.style.boxShadow='0 0 20px '+c.shadowColor;xBtn.style.borderColor=c.hex+'33';
+    /* 面板整塊重新建立（雷達重新掛載：先收合，0.5 秒後展開；上一個雷達的計時器取消） */
+    clearTimeout(st.radarTimer);
+    var np=scorePanelNode(st.m,st.shown);
+    if(st.panel)content.replaceChild(np,st.panel);else content.insertBefore(np,grid);
+    st.panel=np;
+    var radar=np.querySelector('[data-radar]'),rm=st.m;
+    setRadar(radar,rm,0);
+    st.radarTimer=setTimeout(function(){setRadar(radar,rm,1);},500);
+    grid.innerHTML=statPanelsHtml(st.m);
+    pulse.className='w-2 h-2 rounded-full animate-pulse '+c.bg;
+    badge.className='px-2 py-0.5 rounded-sm bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest '+c.text+' drop-shadow-[0_0_8px_currentColor]';
+    badgeNum.nodeValue=String(st.shown);
+    flick.className='text-[26px] md:text-[30px] font-bold leading-relaxed italic '+c.text+' drop-shadow-[0_0_12px_currentColor] animate-flicker';
+    if(flick.textContent!==d.adv.content)flick.textContent=d.adv.content;
+    if(action.textContent!==d.adv.action)action.textContent=d.adv.action;
+  }
+  /* 分數 1.2 秒從 0 跳到實際分數（easeOutQuart）。點擊開啟時當下開始計時、下一個畫格開始跳；
+     每格算出的數字在下一個工作才重繪（同原版 React），所以開啟的第一個畫面是 0 分 */
+  var chan=new MessageChannel();
+  chan.port1.onmessage=function(){st.posted=false;if(st.dead||st.pend===st.shown)return;st.shown=st.pend;render();};
+  function setShown(val){st.pend=val;if(!st.posted){st.posted=true;chan.port2.postMessage(0);}}
+  function startCount(){
+    var id=++st.loop,t0=Date.now(),j=st.m.scores.trafficLightScore;
+    function frame(){
+      if(st.dead||id!==st.loop)return;
+      var k=Math.min((Date.now()-t0)/1200,1);
+      setShown(k<1?Math.floor(j*(1-Math.pow(1-k,4))):j);
+      if(k<1)requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+  function onKey(e){if(e.key==='Escape')close();}
+  function unmount(){
+    st.dead=true;clearTimeout(st.radarTimer);window.removeEventListener('keydown',onKey);
+    document.body.style.overflow='unset';el.remove();
+  }
+  function close(){
+    /* 同原版：每次觸發都在 0.3 秒後播放關閉音效，並關掉當下開著的明細（計時先開始，再重繪） */
+    setTimeout(function(){playSound('close');if(detail){var d=detail;detail=null;d.unmount();}},300);
+    if(!st.closing){st.closing=true;render();}   /* 第一次觸發：淡出縮小（重繪一次） */
+  }
+  render();
+  document.getElementById('app').appendChild(el);
+  document.body.style.overflow='hidden';
+  window.addEventListener('keydown',onKey);
+  el.addEventListener('click',close);
+  sheet.addEventListener('click',function(e){e.stopPropagation();});
+  xBtn.addEventListener('click',close);
+  startCount();
+  return {
+    unmount:unmount,
+    rerender:function(){if(!st.dead)render();},
+    select:function(m){   /* 換人：原地重繪；分數不同才重新跳動（數字先停在原本的值） */
+      if(m===st.m||st.dead)return;
+      var restart=m.scores.trafficLightScore!==st.m.scores.trafficLightScore;
+      st.m=m;render();
+      if(restart)startCount();
+    }
+  };
+}
+
+/* ── 頁尾與組裝 ── */
+function footerHtml(){
+  return '<footer class="text-center text-[10px] text-gray-600 mt-12 py-8 border-t border-white/5"><p class="tracking-widest uppercase">© 2026 欣冠達國際實業有限公司 林沛綺｜All Rights Reserved'+
+    (D.updated?'<span class="block mt-1 opacity-50 font-mono italic">Report Generated: <!---->'+esc(String(D.updated).split('-').join('/'))+'</span>':'')+'</p></footer>';
+}
+document.getElementById('root').innerHTML='<div id="app" class="min-h-screen bg-black text-gray-200 font-sans selection:bg-white selection:text-black">'+
+  '<div class="container mx-auto p-4 md:p-6 lg:p-8 max-w-7xl">'+headerHtml()+
+    '<div class="space-y-4">'+statsHtml()+toolbarHtml()+'<main class="mt-2" id="main"></main></div>'+footerHtml()+
+  '</div></div>';
+var qEl=document.querySelector('#app input'),lastQ='',typed=false;
+/* 搜尋框輸入時上層重繪：卡片篩選，開著的明細也跟著重繪（同原版：字沒有變就不重繪，例如選字確認、重打同一個字） */
+qEl.addEventListener('input',function(){typed=true;if(qEl.value===lastQ)return;lastQ=qEl.value;renderGrid();if(detail)detail.rerender();});
+/* 上一頁返回時瀏覽器可能自動填回舊的搜尋字（原版的輸入框由 React 之後才建立，不會被填回）；使用者自己打的字保留 */
+window.addEventListener('pageshow',function(e){if(!e.persisted&&!typed&&qEl.value)qEl.value='';});
+renderGrid();
+afterPaint(function(){setTimeout(lightUpStats,200);});
+firstRender=false;
+</script>
+<script>
+(function () {
+  var API = "https://script.google.com/macros/s/AKfycbyrqyy6zxRb4sGmMPOdQTRRgbfdDu5RmaoaOXK0k5xic9XaRdM_lyBDcT5fOUl0v6aCYg/exec";
+  var q = location.search.match(/[?&]k=([^&#]+)/), h = location.hash.replace(/^#/, '');
+  var key = q ? decodeURIComponent(q[1]) : h;
+  function fail(msg) {
+    var el = document.getElementById('loading');
+    el.style.color = '#f87171'; el.style.letterSpacing = '0'; el.style.padding = '32px'; el.style.textAlign = 'center';
+    el.textContent = msg;
+  }
+  function run(d) {
+    if (!d || d.error) return fail(d && d.error ? d.error : '讀取失敗，請稍後再試。');
+    window.__DASHBOARD_DATA__ = d;
+    document.getElementById('loading').remove();
+    var s = document.createElement('script');
+    s.textContent = document.getElementById('app-src').textContent;
+    document.body.appendChild(s);
+  }
+  if (!key) return fail('連結不完整，請在 LINE 領導團隊群組輸入「儀表板」取得連結。');
+  // 不帶 Google 登入 cookie：避免手機同時登入多個 Google 帳號時被導到「無法開啟這個檔案」
+  fetch(API + '?data=' + encodeURIComponent(key), { credentials: 'omit', cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(run, function () { fail('讀取失敗，請確認網路後重新整理。'); });
+})();
+</script>
+</body>
+</html>
